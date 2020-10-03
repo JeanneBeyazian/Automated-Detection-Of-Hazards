@@ -24,7 +24,7 @@ using namespace std;
 
 vector<string> folders;
 int IMAGE_WIDTH = 32;
-int IMAGE_HEIGHT = 94;
+int IMAGE_HEIGHT = 94; //Get these from the function?
 
 
 /*
@@ -55,15 +55,33 @@ bool loadImage(string imagePath, Mat& outputImage) {
         return false;
     }
 
-    resize(image, image, Size(IMAGE_WIDTH, IMAGE_HEIGHT));
-
+    //resize(image, image, Size(IMAGE_WIDTH, IMAGE_HEIGHT));
+    padImage(image, IMAGE_WIDTH, IMAGE_HEIGHT);
     // Convert to float 1-channel
     image.convertTo(outputImage, CV_32FC1, 1.0 / 255.0);
 
     return true;
 }
 
-
+/*
+* Add to the top and right side pixels
+*/
+void padImage(Mat& padMe, int newWidth, int newHeight) {
+    Scalar value( 0, 0, 0 ); //Can I put another 0 for transparency? Who knows :) Test this in the main and save to see please!
+  
+    widthDifference = padMe.size().width - newWidth
+    if widthDifference <= 0) {
+        copyMakeBorder(padMe, padMe, 0,0,0,widthDifference,BORDER_CONSTANT,value)
+    } else {
+        cout << "Image width too large already" << endl;
+    }
+    heightDifference = padMe.size().width - newHeight
+    if (heightDifference <= 0) {
+        copyMakeBorder(padMe, padMe, newHeight, 0,0,0,BORDER_CONSTANT,value)
+    } else {
+        cout << "Image height too large already" << endl;
+    }
+}
 /*
 *   Create a Picture object for each image from the given folder and adds it to a vector.
 */
@@ -80,7 +98,7 @@ vector<Picture> loadImages(vector<string> folderNames) {
             Mat outline; //1
             loadImage(imagePaths[i], image);
             loadImage(imagePaths[i + 1], outline)
-                images.emplace_back(image, outline, fileName);
+            images.emplace_back(image, outline, fileName);
         }
     }
 
@@ -179,7 +197,29 @@ Ptr<StatModel>& trainModel(Ptr<StatModel>& model, Mat& inputTrainingData, Mat& o
     return model;
 }
 
-
+/*
+* Compare two images by their difference in pixels by ratio e.g. 0.5 = 50% the same
+*/
+bool compareMatrices(Mat& image1, Mat&image2, float confidence) {
+    //Count and return the number of white pixels / black pixels / transparent pixels in a % confidence
+    double width = image1.size().width;
+    double height = src.size().height;
+    errors = 0
+    for (int x = 0; x < width; ++x) {
+        for (int y = 0; y < width; ++y) {
+            image1colour = image1.at<Vec3b>(x, y);
+            image2colour = image2.at<Vec3b>(x, y);
+            if (image1colour != image2colour) { //Only black and white so no need for absolute +/- of RGB values
+                ++errors
+            }
+        }
+    }
+    if (errors / width * height <= confidence) {
+        return true;
+    } else {
+        return false;
+    }
+}
 /*
 *   Compare each prediction with its corresponding answer.
 *   Save all the mistakes to a vector.
@@ -187,12 +227,31 @@ Ptr<StatModel>& trainModel(Ptr<StatModel>& model, Mat& inputTrainingData, Mat& o
 void interpretMLPResults(string& path, Mat& results, Mat& answer, vector<tuple<Mat, Mat, string>>& predictionErrors) {
 
 
-    if (prediction != answer) {
+    if (!compareMatrices(results, answer)) {
         predictionErrors.emplace_back(prediction, answer, path);
     }
 
 }
-
+/**
+* Input a folder name/path, return the largest width/height of images in that folder
+*/
+tuple<int, int> getMaxWidthHeight(string folderName) {
+    int maxWidth;
+    int maxHeight;
+    vector<string> imageNames;
+    glob(folderName, imageNames, false)
+    for (i = 0; i < imageNames.size; ++i) {
+        Mat currImage = imread(imageName[i], IMREAD_GRAYSCALE)
+        if(currImage.rows > maxHeight) {
+            maxHeight = currImage.rows;
+        }
+        if(currImage.cols > maxWidth) {
+            maxWidth = currImage.cols;
+        }
+    }
+    return tuple<maxWidth, maxHeight>;
+    
+}
 
 /**
 *   Test the input model with the given vector of Picture objects.
@@ -210,7 +269,7 @@ void testModel(int modelType, Ptr<StatModel>& model, vector<Picture>& testImages
         Picture& pic = testImages[i];
 
         model->predict(pic.image.reshape(0, 1), result);
-        interpretMLPResults(pic.filename, result, testImages[i].character, out);
+        interpretMLPResults(pic.filename, result, pic.outline, out); //I changed here
     }
 
 }
