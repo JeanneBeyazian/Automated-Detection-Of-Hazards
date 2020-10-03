@@ -67,20 +67,24 @@ bool loadImage(string imagePath, Mat& outputImage) {
 * Add to the top and right side pixels
 */
 void padImage(Mat& padMe, int newWidth, int newHeight) {
-    Scalar value( 0, 0, 0 ); //Can I put another 0 for transparency? Who knows :) Test this in the main and save to see please!
-  
-    widthDifference = padMe.size().width - newWidth
-    if widthDifference <= 0) {
-        copyMakeBorder(padMe, padMe, 0,0,0,widthDifference,BORDER_CONSTANT,value)
-    } else {
+
+    Scalar value(0, 0, 0); //Can I put another 0 for transparency? Who knows :) Test this in the main and save to see please!
+
+    int widthDifference = padMe.size().width - newWidth;
+    if (widthDifference <= 0) {
+        copyMakeBorder(padMe, padMe, 0, 0, 0, widthDifference, BORDER_CONSTANT, value);
+    }
+    else {
         cout << "Image width too large already" << endl;
     }
-    heightDifference = padMe.size().width - newHeight
-    if (heightDifference <= 0) {
-        copyMakeBorder(padMe, padMe, newHeight, 0,0,0,BORDER_CONSTANT,value)
-    } else {
-        cout << "Image height too large already" << endl;
-    }
+
+    int heightDifference = padMe.size().width - newHeight;
+        if (heightDifference <= 0) {
+            copyMakeBorder(padMe, padMe, newHeight, 0, 0, 0, BORDER_CONSTANT, value);
+        }
+        else {
+            cout << "Image height too large already" << endl;
+        }
 }
 /*
 *   Create a Picture object for each image from the given folder and adds it to a vector.
@@ -93,12 +97,12 @@ vector<Picture> loadImages(vector<string> folderNames) {
         vector<String> imagePaths;
         glob(folder, imagePaths, false);                  // list of all files path in folder
 
-        for (i = 0; i < imagePaths.size; i += 2) {
+        for (int i = 0; i < imagePaths.size(); i += 2) {
             Mat image; //0
             Mat outline; //1
             loadImage(imagePaths[i], image);
-            loadImage(imagePaths[i + 1], outline)
-            images.emplace_back(image, outline, fileName);
+            loadImage(imagePaths[i + 1], outline);
+            images.emplace_back(image, outline, imagePaths[i]);
         }
     }
 
@@ -200,25 +204,32 @@ Ptr<StatModel>& trainModel(Ptr<StatModel>& model, Mat& inputTrainingData, Mat& o
 /*
 * Compare two images by their difference in pixels by ratio e.g. 0.5 = 50% the same
 */
-bool compareMatrices(Mat& image1, Mat&image2, float confidence) {
+bool compareMatrices(Mat& image1, Mat& image2, float confidence) {
     //Count and return the number of white pixels / black pixels / transparent pixels in a % confidence
+
     double width = image1.size().width;
-    double height = src.size().height;
-    errors = 0
-    for (int x = 0; x < width; ++x) {
-        for (int y = 0; y < width; ++y) {
-            image1colour = image1.at<Vec3b>(x, y);
-            image2colour = image2.at<Vec3b>(x, y);
-            if (image1colour != image2colour) { //Only black and white so no need for absolute +/- of RGB values
-                ++errors
+    double height = image1.size().height;
+
+    double width2 = image2.size().width;
+    double height2 = image2.size().height;
+
+    if (width != width2 || height != height2) return false;
+
+    int errors = 0;
+
+        for (int x = 0; x < width; ++x) {
+            for (int y = 0; y < width; ++y) {
+                auto image1colour = image1.at<Vec3b>(x, y);
+                auto image2colour = image2.at<Vec3b>(x, y);
+                if (image1colour != image2colour) { //Only black and white so no need for absolute +/- of RGB values
+                    ++errors;
+                }
             }
         }
-    }
-    if (errors / width * height <= confidence) {
-        return true;
-    } else {
-        return false;
-    }
+    if (errors / width * height <= confidence) return true;
+
+    return false;
+    
 }
 /*
 *   Compare each prediction with its corresponding answer.
@@ -227,8 +238,8 @@ bool compareMatrices(Mat& image1, Mat&image2, float confidence) {
 void interpretMLPResults(string& path, Mat& results, Mat& answer, vector<tuple<Mat, Mat, string>>& predictionErrors) {
 
 
-    if (!compareMatrices(results, answer)) {
-        predictionErrors.emplace_back(prediction, answer, path);
+    if (!compareMatrices(results, answer, 0.05)) {
+        predictionErrors.emplace_back(results, answer, path);
     }
 
 }
@@ -236,21 +247,26 @@ void interpretMLPResults(string& path, Mat& results, Mat& answer, vector<tuple<M
 * Input a folder name/path, return the largest width/height of images in that folder
 */
 tuple<int, int> getMaxWidthHeight(string folderName) {
+
     int maxWidth;
     int maxHeight;
-    vector<string> imageNames;
-    glob(folderName, imageNames, false)
-    for (i = 0; i < imageNames.size; ++i) {
-        Mat currImage = imread(imageName[i], IMREAD_GRAYSCALE)
-        if(currImage.rows > maxHeight) {
-            maxHeight = currImage.rows;
-        }
-        if(currImage.cols > maxWidth) {
-            maxWidth = currImage.cols;
-        }
+
+    vector<String> imageNames;
+    glob(folderName, imageNames, false);
+
+    for (int i = 0; i < imageNames.size(); ++i) {
+
+        Mat currImage = imread(imageNames[i], IMREAD_GRAYSCALE);
+
+        if (currImage.rows > maxHeight) maxHeight = currImage.rows;
+            
+        if (currImage.cols > maxWidth) maxWidth = currImage.cols;
+        
     }
-    return tuple<maxWidth, maxHeight>;
-    
+
+    tuple<int, int> maxTuple(maxWidth, maxHeight);
+
+    return maxTuple;
 }
 
 /**
@@ -258,7 +274,7 @@ tuple<int, int> getMaxWidthHeight(string folderName) {
 *   Update the out vector with the failed predictions made by the model.
 *
 */
-void testModel(int modelType, Ptr<StatModel>& model, vector<Picture>& testImages, vector<tuple<Mat, Mat, string>>& out) {
+void testModel(Ptr<StatModel>& model, vector<Picture>& testImages, vector<tuple<Mat, Mat, string>>& out) {
 
     cout << "Starting testing ..." << endl;
 
@@ -305,7 +321,7 @@ void writeStats(string modelName, int trainImages, int testImages, int duration,
 vector<tuple<Mat, Mat, string>> runMLP(string modelName, vector<Picture>& trainImages, vector<Picture>& testImages) {
 
     Mat inputTrainingData = getInputData(trainImages);          // Mat of all training images
-    Mat outputTrainingData = getMLPOutputData(trainImages);     // Mat of all training image labels
+    Mat outputTrainingData = getMLPOutputOutlinesData(trainImages);     // Mat of all training image labels
 
     //Ptr<StatModel> model = ANN_MLP::load("model.xml");                              // Uncomment to load a MLP
     Ptr<StatModel> model = createMLP(75, inputTrainingData, outputTrainingData);      // Uncomment to create a new MLP and indicate number of neurons
@@ -314,7 +330,7 @@ vector<tuple<Mat, Mat, string>> runMLP(string modelName, vector<Picture>& trainI
     model->save(modelName + ".xml");                                     // Uncomment to save the MLP as an xml
 
     vector<tuple<Mat, Mat, string>> predictionErrors;
-    testModel(MLP_VALUE, model, testImages, predictionErrors);
+    testModel(model, testImages, predictionErrors);
 
     return predictionErrors;
 
@@ -330,9 +346,7 @@ int main() {
     start = clock();
 
     // Dataset
-    folders = { ""
-
-    };
+    folders = { "datasets/highAltitudeDust/*.tiff" };
 
     string modelName = "MLP_FULL";      // Name of the model 
 
