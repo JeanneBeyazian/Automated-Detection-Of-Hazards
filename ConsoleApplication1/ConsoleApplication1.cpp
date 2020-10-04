@@ -41,6 +41,63 @@ public:
     Picture(Mat& image, Mat& outline, string filename) : image(image), outline(outline), filename(filename) {};
 };
 
+
+/*
+* Add to the top and right side pixels
+*/
+void padImage(Mat& padMe, int newWidth, int newHeight) {
+
+    Scalar value(0, 0, 0,0); //Can I put another 0 for transparency? Who knows :) Test this in the main and save to see please!
+
+    int widthDifference = padMe.size().width - newWidth;
+    if (widthDifference < 0) {
+        copyMakeBorder(padMe, padMe, 0, 0, 0, widthDifference*(-1), BORDER_CONSTANT, value);
+    }
+    else {
+        cout << "Image width too large already" << endl;
+    }
+
+    int heightDifference = padMe.size().height - newHeight;
+
+    if (heightDifference < 0) {
+        copyMakeBorder(padMe, padMe, heightDifference*(-1), 0, 0, 0, BORDER_CONSTANT, value);
+    }
+    else {
+        cout << "Image height too large already" << endl;
+    }
+}
+
+
+
+/**
+* Input a folder name/path, return the largest width/height of images in that folder
+*/
+tuple<int, int> getMaxWidthHeight(string folderName) {
+
+    int maxWidth = 0;
+    int maxHeight = 0;
+
+    vector<String> imageNames;
+    glob(folderName, imageNames, false);
+
+    for (int i = 0; i < imageNames.size(); ++i) {
+
+        Mat currImage = imread(imageNames[i]);
+
+        if (currImage.size().height > maxHeight) maxHeight = currImage.size().height;
+
+        if (currImage.size().width > maxWidth) maxWidth = currImage.size().width;
+
+
+    }
+
+    tuple<int, int> maxTuple(maxWidth, maxHeight);
+
+    return maxTuple;
+}
+
+
+
 /*
 *   Read and prepare the image for training.
 *   That includes resizing the matrix and converting it to a float 1-channel.
@@ -63,29 +120,7 @@ bool loadImage(string imagePath, Mat& outputImage) {
     return true;
 }
 
-/*
-* Add to the top and right side pixels
-*/
-void padImage(Mat& padMe, int newWidth, int newHeight) {
 
-    Scalar value(0, 0, 0); //Can I put another 0 for transparency? Who knows :) Test this in the main and save to see please!
-
-    int widthDifference = padMe.size().width - newWidth;
-    if (widthDifference <= 0) {
-        copyMakeBorder(padMe, padMe, 0, 0, 0, widthDifference, BORDER_CONSTANT, value);
-    }
-    else {
-        cout << "Image width too large already" << endl;
-    }
-
-    int heightDifference = padMe.size().width - newHeight;
-        if (heightDifference <= 0) {
-            copyMakeBorder(padMe, padMe, newHeight, 0, 0, 0, BORDER_CONSTANT, value);
-        }
-        else {
-            cout << "Image height too large already" << endl;
-        }
-}
 /*
 *   Create a Picture object for each image from the given folder and adds it to a vector.
 */
@@ -95,9 +130,10 @@ vector<Picture> loadImages(vector<string> folderNames) {
 
     for (string folder : folderNames) {
         vector<String> imagePaths;
+
         glob(folder, imagePaths, false);                  // list of all files path in folder
 
-        for (int i = 0; i < imagePaths.size(); i += 2) {
+        for (int i = 0; i < imagePaths.size()-1; i += 2) {
             Mat image; //0
             Mat outline; //1
             loadImage(imagePaths[i], image);
@@ -152,9 +188,7 @@ Mat getMLPOutputOutlinesData(vector<Picture>& images) {
     Mat imagesData;
 
     for (Picture pic : images) {
-
         //Mat imgDataInOneRow(pic.outline, false);
-
         imagesData.push_back(pic.outline.reshape(0, 1)); //Used to be imgDataInOneRow
 
     }
@@ -243,31 +277,7 @@ void interpretMLPResults(string& path, Mat& results, Mat& answer, vector<tuple<M
     }
 
 }
-/**
-* Input a folder name/path, return the largest width/height of images in that folder
-*/
-tuple<int, int> getMaxWidthHeight(string folderName) {
 
-    int maxWidth;
-    int maxHeight;
-
-    vector<String> imageNames;
-    glob(folderName, imageNames, false);
-
-    for (int i = 0; i < imageNames.size(); ++i) {
-
-        Mat currImage = imread(imageNames[i], IMREAD_GRAYSCALE);
-
-        if (currImage.rows > maxHeight) maxHeight = currImage.rows;
-            
-        if (currImage.cols > maxWidth) maxWidth = currImage.cols;
-        
-    }
-
-    tuple<int, int> maxTuple(maxWidth, maxHeight);
-
-    return maxTuple;
-}
 
 /**
 *   Test the input model with the given vector of Picture objects.
@@ -346,7 +356,12 @@ int main() {
     start = clock();
 
     // Dataset
-    folders = { "datasets/highAltitudeDust/*.tiff" };
+    folders = { "datasets/highLatitudeDust/*.tiff" };
+
+    tuple<int, int> max = getMaxWidthHeight(folders[0]);
+    IMAGE_WIDTH = get<0>(max);
+    IMAGE_HEIGHT = get<1>(max);
+
 
     string modelName = "MLP_FULL";      // Name of the model 
 
